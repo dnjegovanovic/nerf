@@ -3,6 +3,7 @@ from pathlib import Path
 
 from torch.utils.data.dataset import Dataset
 
+
 class BaseDataset(Dataset):
     def __init__(self, root_dir, base_name, extension):
         self.dataset_id = hash(str(root_dir) + "_" + extension)

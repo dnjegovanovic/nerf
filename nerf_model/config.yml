@@ -3,3 +3,13 @@ save_file: "D:/ML_AI_DL_Projects/pytorch_nerf/"
 #Define root directory
 data_dir: "D:/ML_AI_DL_Projects/pytorch_nerf/"
 alpha: 0.5
+
+training_sample: 100
+testimg_idx: 101
+# Stratified option dict
+strf_samp_option:
+  n_samples: 8
+  perturb: True
+  inverse_depth: False
+  near: 2.0
+  far: 6.0
