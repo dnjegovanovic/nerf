@@ -9,8 +9,9 @@ from nerf_model.config.core import config
 from nerf_model.tools.calculate_rays import get_rays
 from nerf_model.models.VolumeSampling import VolumeSampling
 
+from nerf_model.models.PositionalEncoder import PositionalEncoder
 
-def test_stratified_sampling():
+def test_positional_encoder():
     lego_dataset = LegoDataset(config.model_config.data_dir)
     # Gather as torch tensors
     images = lego_dataset.images[: config.app_config.training_sample].to(device)
@@ -72,3 +73,29 @@ def test_stratified_sampling():
     img_path = config.model_config.data_dir + "/stratified_sampling.png"
     plt.savefig(img_path)
     plt.close()
+    
+    #Test Positional Encoder
+    encoder = PositionalEncoder(3,10)
+    view_encoder = PositionalEncoder(3,4)
+    
+    pts_flatten = pts.reshape(-1,3)
+    print(f"pts_flatten shape:{pts_flatten.shape}")
+
+    view_dir = rays_d / torch.norm(rays_d, dim=-1, keepdim=True)
+    print(f"View dir shape:{view_dir.shape}")
+    flatten_view_dir = view_dir[:, None, ...].expand(pts.shape).reshape((-1, 3))
+    print(f"flatten_view_dir shape:{flatten_view_dir.shape}")
+    
+    #Encode data
+    encoded_points = encoder(pts_flatten)
+    encoded_view = view_encoder(flatten_view_dir)
+    
+    print('Encoded Points')
+    print(encoded_points.shape)
+    print(torch.min(encoded_points), torch.max(encoded_points), torch.mean(encoded_points))
+    print('')
+
+    print('Encoded Viewdirs')
+    print(encoded_view.shape)
+    print(torch.min(encoded_view), torch.max(encoded_view), torch.mean(encoded_view))
+    print('')
