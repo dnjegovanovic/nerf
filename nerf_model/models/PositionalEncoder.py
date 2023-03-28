@@ -18,7 +18,9 @@ class PositionalEncoder(nn.Module):
 
         # define freq in either linear or log scale
         if self.log_space:
-            self.freq_band = 2.0 ** torch.linspace(0.0, self.num_freqs - 1, self.num_freqs)
+            self.freq_band = 2.0 ** torch.linspace(
+                0.0, self.num_freqs - 1, self.num_freqs
+            )
         else:
             self.freq_band = torch.linspace(
                 2.0**0.0, 2.0 ** (self.num_freqs - 1), self.num_freqs
