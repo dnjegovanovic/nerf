@@ -56,18 +56,17 @@ class NeRF(nn.Module):
         Forward pass with optional view direction.
         """
         # Cannot use viewdirs if instantiated with d_viewdirs = None
-        
+
         if self.d_viewdirs is None and viewdirs is not None:
-            raise ValueError('Cannot input x_direction if d_viewdirs was not given.')
-        
+            raise ValueError("Cannot input x_direction if d_viewdirs was not given.")
+
         # Apply forward pass up to bottleneck
-        
+
         x_input = x
         for i, layer in enumerate(self.layers):
             x = self.act_fun(layer(x))
             if i in self.skip:
                 x = torch.cat([x, x_input], dim=-1)
-
 
         # Apply bottleneck
         if self.d_viewdirs is not None:
