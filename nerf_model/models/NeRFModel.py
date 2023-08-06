@@ -3,7 +3,7 @@ from torch import nn
 from typing import Tuple, Optional
 
 
-class NeRF(nn.Module):
+class NeRFModel(nn.Module):
     """_summary_
 
     Neural radience fields module

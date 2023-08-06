@@ -102,7 +102,8 @@ class VolumeSampling:
 
         return samples  # [n_rays, n_samples]
 
-    def sample_hierarchical(self,
+    def sample_hierarchical(
+        self,
         rays_origin: torch.Tensor,
         rays_direction: torch.Tensor,
         z_vals: torch.Tensor,
@@ -112,12 +113,18 @@ class VolumeSampling:
         Apply hierarchical sampling to the rays.
         """
         # Draw samples from PDF using z_vals as bins and weights as probabilities.
-        z_vals_mid = .5 * (z_vals[..., 1:] + z_vals[..., :-1])
-        new_z_samples = self._sample_pdf(z_vals_mid, weights[..., 1:-1], self.n_samples,
-                                perturb=self.perturb)
+        z_vals_mid = 0.5 * (z_vals[..., 1:] + z_vals[..., :-1])
+        new_z_samples = self._sample_pdf(
+            z_vals_mid, weights[..., 1:-1], self.n_samples, perturb=self.perturb
+        )
         new_z_samples = new_z_samples.detach()
 
         # Resample points from ray based on PDF.
-        z_vals_combined, _ = torch.sort(torch.cat([z_vals, new_z_samples], dim=-1), dim=-1)
-        pts = rays_origin[..., None, :] + rays_direction[..., None, :] * z_vals_combined[..., :, None]  # [N_rays, N_samples + n_samples, 3]
+        z_vals_combined, _ = torch.sort(
+            torch.cat([z_vals, new_z_samples], dim=-1), dim=-1
+        )
+        pts = (
+            rays_origin[..., None, :]
+            + rays_direction[..., None, :] * z_vals_combined[..., :, None]
+        )  # [N_rays, N_samples + n_samples, 3]
         return pts, z_vals_combined, new_z_samples
