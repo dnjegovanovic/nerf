@@ -6,11 +6,43 @@ import torch.utils.data as data
 
 from typing import List, Callable
 
+from models import NeRFModel, PositionalEncoder
+
 
 class NeRFModule(pl.LightningModule):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.__dict__.update(kwargs)
+        self.n_layers = self.n_layers
+        self.d_filter = self.d_filter
+        self.skip = self.skip
+        self.d_viewdirs = self.d_viewdirs
+
+    def _setup_architecture(self):
+        # set up positiona ecnoder
+        self.encoder = PositionalEncoder.PositionalEncoder(
+            self.d_input, self.n_freqs, self.log_spec
+        )
+        self.encode = lambda x: self.encoder(x)
+
+        if self.use_viewdirs:
+            self.encoder_viewdirs = PositionalEncoder.PositionalEncoder(
+                self.d_input, self.n_freqs_views, self.log_spec
+            )
+            self.encode_viewdirs = lambda x: self.encoder_viewdirs(x)
+            self.d_viewdirs = self.encode_viewdirs.d_output
+        else:
+            self.encode_viewdirs = None
+            self.d_viewdirs = None
+
+        # NeRF model
+        self.model = NeRFModel(
+            d_input=self.encoder.d_output,
+            n_layers=self.n_layers,
+            d_filter=self.d_filter,
+            skip=self.skip,
+            d_viewdirs=self.d_viewdirs,
+        )
 
     def _get_chunks(
         self, inputs: torch.Tensor, chunk_size: int = 2**15
