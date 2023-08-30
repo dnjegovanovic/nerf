@@ -2,6 +2,7 @@ import numpy as np
 import torch
 import matplotlib.pyplot as plt
 from .base_dataset import BaseDataset
+from nerf_model.tools.calculate_rays import *
 
 
 class LegoDataset(BaseDataset):
@@ -25,6 +26,14 @@ class LegoDataset(BaseDataset):
         self.images = torch.from_numpy(self.data["images"])
         self.poses = torch.from_numpy(self.data["poses"])
         self.focal_length = torch.from_numpy(self.data["focal"])
+
+        self.img_height, self.img_width = self.images[1:3]
+
+    def get_all_rays(self, number):
+        all_rays = [[get_rays(self.img_height, self.img_width, self.focal_length, p)]
+                    for p in self.poses]
+        
+        return all_rays
 
     def _sanity_check(self):
         assert (

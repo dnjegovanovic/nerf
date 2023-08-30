@@ -15,3 +15,37 @@ class BaseDataset(Dataset):
 
     def __getitem__(self, index):
         pass
+    
+    def __len__(self):
+        pass
+
+
+class SplicedDataset(Dataset):
+    def __init__(self, images, poses):
+        assert images.shape[0] > 0
+        assert poses.shape[0] > 0
+        
+        self.images = images
+        self.poses = poses
+        self.lenght = self.images.shape[0]
+        
+    def __len__(self):
+        return self.lenght
+    
+    def __getitem__(self, index):
+        return [self.images[index], self.poses[index]]
+    
+class SplicedRays(Dataset):
+    def __init__(self, rays_o, rays_d):
+        assert rays_o.shape[0] > 0
+        assert rays_d.shape[0] > 0
+        
+        self.rays_o = rays_o
+        self.rays_d = rays_d
+        self.lenght = self.rays_o.shape[0]
+        
+    def __len__(self):
+        return self.lenght
+    
+    def __getitem__(self, index):
+        return [self.rays_o[index], self.rays_d[index]]
