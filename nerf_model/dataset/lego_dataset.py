@@ -30,9 +30,11 @@ class LegoDataset(BaseDataset):
         self.img_height, self.img_width = self.images[1:3]
 
     def get_all_rays(self, number):
-        all_rays = [[get_rays(self.img_height, self.img_width, self.focal_length, p)]
-                    for p in self.poses]
-        
+        all_rays = [
+            [get_rays(self.img_height, self.img_width, self.focal_length, p)]
+            for p in self.poses
+        ]
+
         return all_rays
 
     def _sanity_check(self):

@@ -8,12 +8,14 @@ class VolumeSampling:
     def __init__(
         self,
         n_samples: int,
+        n_sample_hierarchicle: int,
         perturb: Optional[bool] = True,
         inverse_depth: bool = False,
     ):
         self.n_samples = n_samples
         self.perturb = perturb
         self.inverse_depth = inverse_depth
+        self.n_sample_hierarchicle = n_sample_hierarchicle
 
     def stratified_sampling(
         self,
@@ -115,7 +117,10 @@ class VolumeSampling:
         # Draw samples from PDF using z_vals as bins and weights as probabilities.
         z_vals_mid = 0.5 * (z_vals[..., 1:] + z_vals[..., :-1])
         new_z_samples = self._sample_pdf(
-            z_vals_mid, weights[..., 1:-1], self.n_samples, perturb=self.perturb
+            z_vals_mid,
+            weights[..., 1:-1],
+            self.n_sample_hierarchicle,
+            perturb=self.perturb,
         )
         new_z_samples = new_z_samples.detach()
 

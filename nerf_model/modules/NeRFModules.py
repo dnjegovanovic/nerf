@@ -9,9 +9,14 @@ import torch.utils.data as data
 from typing import List, Callable
 
 from nerf_model.models import NeRFModel, PositionalEncoder
+from nerf_model.models.VolumeSampling import VolumeSampling
+from nerf_model.models.VolumeRendering import VolumeRendering
 from nerf_model.dataset.lego_dataset import LegoDataset
 from nerf_model.dataset.base_dataset import SplicedDataset, SplicedRays
 from nerf_model.tools.calculate_rays import *
+
+from nerf_model.tools.rendering import *
+
 
 class EarlyStopping:
     def __init__(self, patience: int = 30, margin: float = 1e-4):
@@ -88,6 +93,15 @@ class NeRFModule(pl.LightningModule):
         else:
             self.fine_model = None
 
+        self.volume_sampling = VolumeSampling(
+            self.n_samples,
+            self.n_sample_hierarchicle,
+            self.perturb,
+            self.inverse_depth,
+        )
+
+        self.volume_rendering = VolumeRendering(self.raw_noise_std, self.white_bkgd)
+
     def _get_chunks(
         self, inputs: torch.Tensor, chunk_size: int = 2**15
     ) -> List[torch.Tensor]:
@@ -134,23 +148,132 @@ class NeRFModule(pl.LightningModule):
         self.dataset = LegoDataset(self.data_dir)
         all_arays = np.array(self.dataset.get_all_rays())
         images = self.dataset.images
-        poses = self.dataset.poses
-        
+        # poses = self.dataset.poses
+
         num_of_data = images.shape[0]
-        num_of_train_data = int(0.9*num_of_data)
-        
-        
-        self.train_data = SplicedRays(all_arays[:,0][:num_of_train_data], all_arays[:,1][:num_of_train_data])
-        self.val_data = SplicedRays(all_arays[:,0][num_of_train_data:], all_arays[:,1][num_of_train_data:])
-        
-        
+        num_of_train_data = int(0.9 * num_of_data)
+
+        self.train_data = SplicedRays(
+            all_arays[:, 0][:num_of_train_data], all_arays[:, 1][:num_of_train_data],images[:num_of_train_data]
+        )
+        self.val_data = SplicedRays(
+            all_arays[:, 0][num_of_train_data:], all_arays[:, 1][num_of_train_data:],images[num_of_train_data:]
+        )
 
     def forward(self, x):
-        raise NotImplementedError
-        # return
+        rays_o = x["rays_o"]
+        rays_d = x["rays_d"]
+                
+        # Sample query points along each ray.
+        query_points, z_vals = self.volume_sampling.stratified_sampling(
+            rays_o,
+            rays_d,
+            self.near,
+            self.far,
+        )
 
-    def validation_step(self, sample, batch_idx):
-        raise NotImplementedError
+        # Prepare batches.
+        batches = self._prepare_chunks(
+            query_points, self.encoding_fn, chunksize=self.chunksize
+        )
+        if self.viewdirs_encoding_fn is not None:
+            batches_viewdirs = self._prepare_viewdirs_chunks(
+                query_points,
+                rays_d,
+                self.viewdirs_encoding_fn,
+                chunksize=self.chunksize,
+            )
+        else:
+            batches_viewdirs = [None] * len(batches)
+
+        # Coarse model pass.
+        # Split the encoded points into "chunks", run the model on all chunks, and
+        # concatenate the results (to avoid out-of-memory issues).
+        predictions = []
+        for batch, batch_viewdirs in zip(batches, batches_viewdirs):
+            predictions.append(self.model(batch, viewdirs=batch_viewdirs))
+        raw = torch.cat(predictions, dim=0)
+        raw = raw.reshape(list(query_points.shape[:2]) + [raw.shape[-1]])
+
+        # Perform differentiable volume rendering to re-synthesize the RGB image.
+        rgb_map, depth_map, acc_map, weights = self.volume_rendering.raw_2_outputs(
+            raw, z_vals, rays_d
+        )
+        # rgb_map, depth_map, acc_map, weights = render_volume_density(raw, rays_o, z_vals)
+        outputs = {"z_vals_stratified": z_vals}
+
+        # Fine model pass.
+        if self.n_samples_hierarchical > 0:
+            # Save previous outputs to return.
+            rgb_map_0, depth_map_0, acc_map_0 = rgb_map, depth_map, acc_map
+
+            # Apply hierarchical sampling for fine query points.
+            (
+                query_points,
+                z_vals_combined,
+                z_hierarch,
+            ) = self.volume_sampling.sample_hierarchical(
+                rays_o, rays_d, z_vals, weights
+            )
+
+            # Prepare inputs as before.
+            batches = self._prepare_chunks(
+                query_points, self.encoding_fn, chunksize=self.chunksize
+            )
+            if self.viewdirs_encoding_fn is not None:
+                batches_viewdirs = self._prepare_viewdirs_chunks(
+                    query_points,
+                    rays_d,
+                    self.viewdirs_encoding_fn,
+                    chunksize=self.chunksize,
+                )
+            else:
+                batches_viewdirs = [None] * len(batches)
+        
+            # Forward pass new samples through fine model.
+            fine_model = fine_model if fine_model is not None else self.model
+            predictions = []
+            for batch, batch_viewdirs in zip(batches, batches_viewdirs):
+                predictions.append(fine_model(batch, viewdirs=batch_viewdirs))
+            raw = torch.cat(predictions, dim=0)
+            raw = raw.reshape(list(query_points.shape[:2]) + [raw.shape[-1]])
+
+            # Perform differentiable volume rendering to re-synthesize the RGB image.
+            rgb_map, depth_map, acc_map, weights = self.volume_rendering.raw_2_outputs(raw, z_vals_combined, rays_d)
+            
+            outputs['z_vals_hierarchical'] = z_hierarch
+            outputs['rgb_map_0'] = rgb_map_0
+            outputs['depth_map_0'] = depth_map_0
+            outputs['acc_map_0'] = acc_map_0
+
+            # Store outputs.
+            outputs['rgb_map'] = rgb_map
+            outputs['depth_map'] = depth_map
+            outputs['acc_map'] = acc_map
+            outputs['weights'] = weights
+            
+            self._training_sanity_check(outputs)
+            
+            return outputs
+    
+    def training_step(self, batch, batch_idx):
+        outputs = self(batch)
+        rgb_predicted = outputs['rgb_map']
+        loss = torch.nn.functional.mse_loss(rgb_predicted, batch["images"])
+        
+        self.log("train_loss", loss.item(), prog_bar=True)
+        
+        return loss
+
+    def validation_step(self, batch, batch_idx):
+        
+        outputs = self(batch)
+        rgb_predicted = outputs['rgb_map']
+        loss = torch.nn.functional.mse_loss(rgb_predicted, batch["images"])
+        
+        self.log("val_loss", loss.item(), prog_bar=True)
+        
+        return loss
 
     def train_dataloader(self):
         return data.DataLoader(
@@ -175,7 +298,13 @@ class NeRFModule(pl.LightningModule):
             persistent_workers=True,
             timeout=30,
         )
-
+    def _training_sanity_check(outputs):
+        # Check for any numerical issues.
+        for k, v in outputs.items():
+            if torch.isnan(v).any():
+                print(f"! [Numerical Alert] {k} contains NaN.")
+            if torch.isinf(v).any():
+                print(f"! [Numerical Alert] {k} contains Inf.")
     def configure_optimizers(self):
         opt_gen = optim.Adam(
             [
