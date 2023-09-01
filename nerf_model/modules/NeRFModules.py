@@ -8,6 +8,9 @@ import torch.utils.data as data
 
 from typing import List, Callable
 
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import axes3d
+
 from nerf_model.models import NeRFModel, PositionalEncoder
 from nerf_model.models.VolumeSampling import VolumeSampling
 from nerf_model.models.VolumeRendering import VolumeRendering
@@ -16,6 +19,7 @@ from nerf_model.dataset.base_dataset import SplicedDataset, SplicedRays
 from nerf_model.tools.calculate_rays import *
 
 from nerf_model.tools.rendering import *
+from nerf_model.tools.plot_crop_data import *
 
 
 class EarlyStopping:
@@ -50,6 +54,9 @@ class NeRFModule(pl.LightningModule):
         self.use_fine_model = self.use_fine_model
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.data_dir = self.data_dir
+
+        self.train_psnrs = []
+        self.val_psnrs = []
 
     def _setup_architecture(self):
         # set up positiona ecnoder
@@ -154,16 +161,62 @@ class NeRFModule(pl.LightningModule):
         num_of_train_data = int(0.9 * num_of_data)
 
         self.train_data = SplicedRays(
-            all_arays[:, 0][:num_of_train_data], all_arays[:, 1][:num_of_train_data],images[:num_of_train_data]
+            all_arays[:, 0][:num_of_train_data],
+            all_arays[:, 1][:num_of_train_data],
+            images[:num_of_train_data],
         )
         self.val_data = SplicedRays(
-            all_arays[:, 0][num_of_train_data:], all_arays[:, 1][num_of_train_data:],images[num_of_train_data:]
+            all_arays[:, 0][num_of_train_data:],
+            all_arays[:, 1][num_of_train_data:],
+            images[num_of_train_data:],
         )
+
+    def _plot_data(
+        self,
+        rgb_predicted,
+        testimg,
+        train_psnrs,
+        val_psnrs,
+        outputs,
+        n_samples,
+        n_samples_hierarchical,
+        iternums,
+    ):
+        # Plot example outputs
+        fig, ax = plt.subplots(
+            1, 4, figsize=(24, 4), gridspec_kw={"width_ratios": [1, 1, 1, 3]}
+        )
+        ax[0].imshow(
+            rgb_predicted.reshape([self.dataset.img_height, self.dataset.img_width, 3])
+            .detach()
+            .cpu()
+            .numpy()
+        )
+        ax[0].set_title(f"Iteration: {i}")
+        ax[1].imshow(testimg.detach().cpu().numpy())
+        ax[1].set_title(f"Target")
+        ax[2].plot(range(0, i + 1), train_psnrs, "r")
+        ax[2].plot(iternums, val_psnrs, "b")
+        ax[2].set_title("PSNR (train=red, val=blue")
+        z_vals_strat = outputs["z_vals_stratified"].view((-1, n_samples))
+        z_sample_strat = z_vals_strat[z_vals_strat.shape[0] // 2].detach().cpu().numpy()
+        if "z_vals_hierarchical" in outputs:
+            z_vals_hierarch = outputs["z_vals_hierarchical"].view(
+                (-1, n_samples_hierarchical)
+            )
+            z_sample_hierarch = (
+                z_vals_hierarch[z_vals_hierarch.shape[0] // 2].detach().cpu().numpy()
+            )
+        else:
+            z_sample_hierarch = None
+        _ = plot_samples(z_sample_strat, z_sample_hierarch, ax=ax[3])
+        ax[3].margins(0)
+        plt.show()
 
     def forward(self, x):
         rays_o = x["rays_o"]
         rays_d = x["rays_d"]
-                
+
         # Sample query points along each ray.
         query_points, z_vals = self.volume_sampling.stratified_sampling(
             rays_o,
@@ -229,7 +282,7 @@ class NeRFModule(pl.LightningModule):
                 )
             else:
                 batches_viewdirs = [None] * len(batches)
-        
+
             # Forward pass new samples through fine model.
             fine_model = fine_model if fine_model is not None else self.model
             predictions = []
@@ -239,40 +292,47 @@ class NeRFModule(pl.LightningModule):
             raw = raw.reshape(list(query_points.shape[:2]) + [raw.shape[-1]])
 
             # Perform differentiable volume rendering to re-synthesize the RGB image.
-            rgb_map, depth_map, acc_map, weights = self.volume_rendering.raw_2_outputs(raw, z_vals_combined, rays_d)
-            
-            outputs['z_vals_hierarchical'] = z_hierarch
-            outputs['rgb_map_0'] = rgb_map_0
-            outputs['depth_map_0'] = depth_map_0
-            outputs['acc_map_0'] = acc_map_0
+            rgb_map, depth_map, acc_map, weights = self.volume_rendering.raw_2_outputs(
+                raw, z_vals_combined, rays_d
+            )
+
+            outputs["z_vals_hierarchical"] = z_hierarch
+            outputs["rgb_map_0"] = rgb_map_0
+            outputs["depth_map_0"] = depth_map_0
+            outputs["acc_map_0"] = acc_map_0
 
             # Store outputs.
-            outputs['rgb_map'] = rgb_map
-            outputs['depth_map'] = depth_map
-            outputs['acc_map'] = acc_map
-            outputs['weights'] = weights
-            
+            outputs["rgb_map"] = rgb_map
+            outputs["depth_map"] = depth_map
+            outputs["acc_map"] = acc_map
+            outputs["weights"] = weights
+
             self._training_sanity_check(outputs)
-            
+
             return outputs
-    
+
     def training_step(self, batch, batch_idx):
         outputs = self(batch)
-        rgb_predicted = outputs['rgb_map']
+        rgb_predicted = outputs["rgb_map"]
         loss = torch.nn.functional.mse_loss(rgb_predicted, batch["images"])
-        
+
         self.log("train_loss", loss.item(), prog_bar=True)
-        
+        psnr = -10.0 * torch.log10(loss)
+        self.log("train_psnr", psnr.item(), prog_bar=True)
+        self.train_psnrs.append(psnr.item())
+
         return loss
 
     def validation_step(self, batch, batch_idx):
-        
         outputs = self(batch)
-        rgb_predicted = outputs['rgb_map']
+        rgb_predicted = outputs["rgb_map"]
         loss = torch.nn.functional.mse_loss(rgb_predicted, batch["images"])
-        
+
         self.log("val_loss", loss.item(), prog_bar=True)
-        
+        val_psnr = -10.0 * torch.log10(loss)
+        self.log("val_psnr", val_psnr.item(), prog_bar=True)
+        self.val_psnrs.append(val_psnr.item())
+
         return loss
 
     def train_dataloader(self):
@@ -298,6 +358,7 @@ class NeRFModule(pl.LightningModule):
             persistent_workers=True,
             timeout=30,
         )
+
     def _training_sanity_check(outputs):
         # Check for any numerical issues.
         for k, v in outputs.items():
@@ -305,6 +366,7 @@ class NeRFModule(pl.LightningModule):
                 print(f"! [Numerical Alert] {k} contains NaN.")
             if torch.isinf(v).any():
                 print(f"! [Numerical Alert] {k} contains Inf.")
+
     def configure_optimizers(self):
         opt_gen = optim.Adam(
             [

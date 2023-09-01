@@ -50,4 +50,8 @@ class SplicedRays(Dataset):
         return self.lenght
 
     def __getitem__(self, index):
-        return {"rays_o": self.rays_o[index], "rays_d": self.rays_d[index], "images": self.images}
+        return {
+            "rays_o": self.rays_o[index],
+            "rays_d": self.rays_d[index],
+            "images": self.images,
+        }
