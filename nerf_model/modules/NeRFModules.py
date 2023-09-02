@@ -21,6 +21,8 @@ from nerf_model.tools.calculate_rays import *
 from nerf_model.tools.rendering import *
 from nerf_model.tools.plot_crop_data import *
 
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
 
 class EarlyStopping:
     def __init__(self, patience: int = 30, margin: float = 1e-4):
@@ -44,30 +46,39 @@ class EarlyStopping:
 
 
 class NeRFModule(pl.LightningModule):
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, config, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.__dict__.update(kwargs)
-        self.n_layers = self.n_layers
-        self.d_filter = self.d_filter
-        self.skip = self.skip
-        self.d_viewdirs = self.d_viewdirs
-        self.use_fine_model = self.use_fine_model
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.data_dir = self.data_dir
+        self.config = config
+
+        self.n_layers = config.model["n_layers"]
+        self.d_filter = config.model["d_filter"]
+        self.skip = config.model["skip"]
+        self.use_fine_model = config.model["use_fine_model"]
+        self.data_dir = config.data_dir
 
         self.train_psnrs = []
         self.val_psnrs = []
 
+        # device = device
+
+        self._setup_data()
+        self._setup_architecture()
+
     def _setup_architecture(self):
         # set up positiona ecnoder
         self.encoder = PositionalEncoder.PositionalEncoder(
-            self.d_input, self.n_freqs, self.log_spec
+            self.config.encoder["d_input"],
+            self.config.encoder["n_freqs"],
+            self.config.encoder["log_spec"],
         )
         self.encode = lambda x: self.encoder(x)
 
-        if self.use_viewdirs:
+        if self.config.encoder["use_viewdirs"]:
             self.encoder_viewdirs = PositionalEncoder.PositionalEncoder(
-                self.d_input, self.n_freqs_views, self.log_spec
+                self.config.encoder["d_input"],
+                self.config.encoder["n_freqs"],
+                self.config.encoder["log_spec"],
             )
             self.encode_viewdirs = lambda x: self.encoder_viewdirs(x)
             self.d_viewdirs = self.encode_viewdirs.d_output
@@ -84,7 +95,7 @@ class NeRFModule(pl.LightningModule):
             d_viewdirs=self.d_viewdirs,
         )
 
-        self.model.to(self.device)
+        self.model.to(device)
         self.model_params = list(self.model.parameters())
 
         if self.use_fine_model:
@@ -95,19 +106,22 @@ class NeRFModule(pl.LightningModule):
                 skip=self.skip,
                 d_viewdirs=self.d_viewdirs,
             )
-            self.fine_model.to(self.device)
+            self.fine_model.to(device)
             model_params = model_params + list(self.fine_model.parameters())
         else:
             self.fine_model = None
 
         self.volume_sampling = VolumeSampling(
-            self.n_samples,
-            self.n_sample_hierarchicle,
-            self.perturb,
-            self.inverse_depth,
+            self.config.strf_samp_option["n_samples"],
+            self.config.hierarchical_sampling["n_sample_hierarchicle"],
+            self.config.strf_samp_option["perturb"],
+            self.config.strf_samp_option["inverse_depth"],
         )
 
-        self.volume_rendering = VolumeRendering(self.raw_noise_std, self.white_bkgd)
+        self.volume_rendering = VolumeRendering(
+            self.config.hierarchical_sampling["raw_noise_std"],
+            self.config.hierarchical_sampling["white_bkgd"],
+        )
 
     def _get_chunks(
         self, inputs: torch.Tensor, chunk_size: int = 2**15
@@ -181,6 +195,7 @@ class NeRFModule(pl.LightningModule):
         n_samples,
         n_samples_hierarchical,
         iternums,
+        i,
     ):
         # Plot example outputs
         fig, ax = plt.subplots(
@@ -221,20 +236,22 @@ class NeRFModule(pl.LightningModule):
         query_points, z_vals = self.volume_sampling.stratified_sampling(
             rays_o,
             rays_d,
-            self.near,
-            self.far,
+            self.config.strf_samp_option["near"],
+            self.config.strf_samp_option["far"],
         )
 
         # Prepare batches.
         batches = self._prepare_chunks(
-            query_points, self.encoding_fn, chunksize=self.chunksize
+            query_points,
+            self.encode,
+            chunksize=self.config.training_config["chunksize"],
         )
-        if self.viewdirs_encoding_fn is not None:
+        if self.encode_viewdirs is not None:
             batches_viewdirs = self._prepare_viewdirs_chunks(
                 query_points,
                 rays_d,
-                self.viewdirs_encoding_fn,
-                chunksize=self.chunksize,
+                self.encode_viewdirs,
+                chunksize=self.config.training_config["chunksize"],
             )
         else:
             batches_viewdirs = [None] * len(batches)
@@ -256,7 +273,7 @@ class NeRFModule(pl.LightningModule):
         outputs = {"z_vals_stratified": z_vals}
 
         # Fine model pass.
-        if self.n_samples_hierarchical > 0:
+        if self.config.hierarchical_sampling["n_samples_hierarchical"] > 0:
             # Save previous outputs to return.
             rgb_map_0, depth_map_0, acc_map_0 = rgb_map, depth_map, acc_map
 
@@ -271,14 +288,16 @@ class NeRFModule(pl.LightningModule):
 
             # Prepare inputs as before.
             batches = self._prepare_chunks(
-                query_points, self.encoding_fn, chunksize=self.chunksize
+                query_points,
+                self.encode,
+                chunksize=self.config.training_config["chunksize"],
             )
-            if self.viewdirs_encoding_fn is not None:
+            if self.encode_viewdirs is not None:
                 batches_viewdirs = self._prepare_viewdirs_chunks(
                     query_points,
                     rays_d,
-                    self.viewdirs_encoding_fn,
-                    chunksize=self.chunksize,
+                    self.encode_viewdirs,
+                    chunksize=self.config.training_config["chunksize"],
                 )
             else:
                 batches_viewdirs = [None] * len(batches)
@@ -337,8 +356,8 @@ class NeRFModule(pl.LightningModule):
 
     def train_dataloader(self):
         return data.DataLoader(
-            self.train_set,
-            batch_size=self.batch_size,
+            self.train_data,
+            batch_size=self.config["batch_size"],
             shuffle=True,
             drop_last=True,
             num_workers=8,
@@ -349,8 +368,8 @@ class NeRFModule(pl.LightningModule):
 
     def val_dataloader(self):
         return data.DataLoader(
-            self.val_set,
-            batch_size=self.batch_size,
+            self.val_data,
+            batch_size=self.config["batch_size"],
             shuffle=False,
             drop_last=False,
             num_workers=8,

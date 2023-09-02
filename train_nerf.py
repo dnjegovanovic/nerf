@@ -3,7 +3,6 @@ import pytorch_lightning as pl
 import pytorch_lightning.loggers as loggers
 
 from argparse import ArgumentParser
-
 from nerf_model.config.core import config
 from nerf_model.modules.NeRFModules import NeRFModule
 
@@ -18,17 +17,11 @@ def main(hparams):
     checkpoint_callback = pl.callbacks.ModelCheckpoint(
         monitor="val_loss",
         filename="model-{epoch:02d}-{val_loss:.5f}",
-        save_top_k=3,
+        save_top_k=2,
         mode="min",
         save_last=True,
     )
-    best_callback = pl.callbacks.ModelCheckpoint(
-        monitor="val_loss",
-        filename="best",
-        save_top_k=1,
-        mode="min",
-        save_last=False,
-    )
+
     early_stop_callback = pl.callbacks.EarlyStopping(
         monitor="val_loss",
         min_delta=0.001,
@@ -37,21 +30,43 @@ def main(hparams):
         mode="min",
     )
 
-    callbacks = [checkpoint_callback, best_callback, early_stop_callback]
+    callbacks = [checkpoint_callback, early_stop_callback]
 
-    hparams.check_val_every_n_epochs = 1
-    hparams.stochastic_weight_avg = False
-    hparams.benchmark = True
+    # hparams.stochastic_weight_avg = False
 
-    trainer = pl.Trainer.from_argparse_args(
-        hparams,
+    trainer = pl.Trainer(
         accelerator="gpu",
         devices=[hparams.gpu],
         logger=logger,
         callbacks=callbacks,
+        check_val_every_n_epoch=hparams.check_val_every_n_epochs,
+        benchmark=hparams.benchmark,
     )
 
-    model = NeRFModule()  # proslediti config
+    model = NeRFModule(config.model_training_config)  # proslediti config
     resume = hparams.resume
     del hparams.resume
     trainer.fit(model, ckpt_path=resume)
+
+
+def add_base_arguments(parser):
+    parser.add_argument("--test_name", type=str, help="Test name", default="test_01")
+    parser.add_argument("--resume", type=str, help="resume from checkpoint")
+    parser.add_argument(
+        "--gpu", type=int, default=0, help="specify device id of gpu to train on"
+    )
+    parser.add_argument(
+        "--check-val-every-n-epochs",
+        type=int,
+        default=1,
+        help="check-val-every-n-epochs",
+    )
+    parser.add_argument("--benchmark", type=bool, default=True, help="benchmark")
+
+    return parser
+
+
+if __name__ == "__main__":
+    parser = ArgumentParser(add_help=True)
+    parser = add_base_arguments(parser)
+    main(parser.parse_args())

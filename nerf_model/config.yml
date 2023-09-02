@@ -14,7 +14,7 @@ strf_samp_option:
   near: 2.0 # plane
   far: 6.0 # plane
 
-encoders:
+encoder:
   d_input: 3 # Number of input dimensions
   n_freqs: 10 # Number of encoding functions for samples
   log_space: True # If set, frequencies scale in log space
@@ -32,15 +32,17 @@ model:
 hierarchical_sampling:
   n_samples_hierarchical: 64   # Number of samples per ray
   perturb_hierarchical: False  # If set, applies noise to sample positions
+  raw_noise_std: 0.0
+  white_bkgd: False
 
 optimizer:
   lr: 5e-4
 
 training_config:
   n_iters: 10000
-  batch_size: 2**14          # Number of rays per gradient step (power of 2)
+  batch_size: 1         # Number of rays per gradient step (power of 2)
   one_image_per_step: True   # One image per gradient step (disables batching)
-  chunksize: 2**14           # Modify as needed to fit in GPU memory
+  chunksize: 2           # Modify as needed to fit in GPU memory
   center_crop: True          # Crop the center of image (one_image_per_)
   center_crop_iters: 50      # Stop cropping center after this many epochs
   display_rate: 25          # Display test output every X epochs
