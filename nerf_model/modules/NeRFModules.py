@@ -187,18 +187,22 @@ class NeRFModule(pl.LightningModule):
         iternums,
         i,
     ):
+        if self.config.training_config["batch_size"] > 1:
+            pred_img = rgb_predicted.reshape([-1,self.dataset.img_height, self.dataset.img_width, 3])[0].detach().cpu().numpy()
+            test_img_one = testimg.reshape([-1,self.dataset.img_height, self.dataset.img_width, 3])[0].detach().cpu().numpy()
+        else:
+            pred_img = rgb_predicted.reshape([self.dataset.img_height, self.dataset.img_width, 3]).detach().cpu().numpy()
+            test_img_one = testimg.reshape([self.dataset.img_height, self.dataset.img_width, 3]).detach().cpu().numpy()
+
         # Plot example outputs
         fig, ax = plt.subplots(
             1, 4, figsize=(24, 4), gridspec_kw={"width_ratios": [1, 1, 1, 3]}
         )
         ax[0].imshow(
-            rgb_predicted.reshape([self.dataset.img_height, self.dataset.img_width, 3])
-            .detach()
-            .cpu()
-            .numpy()
+            pred_img
         )
         ax[0].set_title(f"Iteration: {i}")
-        ax[1].imshow(testimg.reshape([self.dataset.img_height, self.dataset.img_width, 3]).detach().cpu().numpy())
+        ax[1].imshow(test_img_one)
         ax[1].set_title(f"Target")
         ax[2].plot(range(0, i), train_psnrs, "r")
         #ax[2].plot(iternums, val_psnrs, "b")
@@ -220,11 +224,19 @@ class NeRFModule(pl.LightningModule):
         plt.close(fig)
         
     def forward(self, x):
-        rays_o = x["rays_o"][0]
-        rays_d = x["rays_d"][0]
+        
+        if self.config.training_config["batch_size"] > 1:
+            rays_o = x["rays_o"]
+            rays_o = rays_o.reshape([-1,3])
+            rays_d = x["rays_d"]
+            rays_d = rays_d.reshape([-1,3])
 
-        rays_o = rays_o.reshape([-1, 3])
-        rays_d = rays_d.reshape([-1, 3])
+        else:
+            rays_o = x["rays_o"][0]
+            rays_d = x["rays_d"][0]
+
+            rays_o = rays_o.reshape([-1, 3])
+            rays_d = rays_d.reshape([-1, 3])
 
         # Sample query points along each ray.
         query_points, z_vals = self.volume_sampling.stratified_sampling(
@@ -352,7 +364,7 @@ class NeRFModule(pl.LightningModule):
         self.iter_nums_val += 1
         self.iternums_val.append(self.iter_nums_val)
 
-        if self.iter_nums % 50 == 0 and self.iter_nums != 0:
+        if self.iter_nums % 40 == 0 and self.iter_nums != 0:
             # for sample in self.test_data_loader:
             #     outputs_test = self(sample)
             #     rgb_predicted_test = outputs_test["rgb_map"]

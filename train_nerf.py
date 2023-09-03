@@ -44,6 +44,7 @@ def main(hparams):
         check_val_every_n_epoch=hparams.check_val_every_n_epochs,
         benchmark=hparams.benchmark,
         max_epochs=hparams.max_epochs,
+        log_every_n_steps=40
     )
 
     model = NeRFModule(config.model_training_config)  # proslediti config
