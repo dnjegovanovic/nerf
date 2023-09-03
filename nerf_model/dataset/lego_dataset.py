@@ -41,8 +41,8 @@ class LegoDataset(BaseDataset):
         assert (
             self.images.shape[0] == self.poses.shape[0]
         ), "Number of image is not same as number of poses!"
-        print(f"Image shape: {self.images.shape}")
-        print(f"Pose shape: {self.poses.shape}")
+        # print(f"Image shape: {self.images.shape}")
+        # print(f"Pose shape: {self.poses.shape}")
 
         self._plot_save_img()
 

@@ -30,6 +30,7 @@ class StratifiedConfig(BaseModel):
 
 class NeRFModelTrainConfig(BaseModel):
     data_dir: str
+    save_file: str
     strf_samp_option: Dict
     encoder: Dict
     model: Dict

@@ -1,5 +1,5 @@
 package_name: nerf_model
-save_file: "D:/ML_AI_DL_Projects/pytorch_nerf/"
+save_file: "D:/ML_AI_DL_Projects/projects_repo/nerf/savedfigure"
 #Define root directory
 data_dir: "D:/ML_AI_DL_Projects/pytorch_nerf/"
 alpha: 0.5

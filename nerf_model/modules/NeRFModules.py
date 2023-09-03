@@ -23,6 +23,7 @@ from nerf_model.tools.plot_crop_data import *
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
+
 class NeRFModule(pl.LightningModule):
     def __init__(self, config, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -38,10 +39,16 @@ class NeRFModule(pl.LightningModule):
         self.train_psnrs = []
         self.val_psnrs = []
 
+        self.iter_nums = 0
+        self.iternums = []
+        self.iternums_val = []
+        self.iter_nums_val = 0
+
         # device = device
 
         self._setup_data()
         self._setup_architecture()
+        self.test_data_loader = self.test_dataloader()
 
     def _setup_architecture(self):
         # set up positiona ecnoder
@@ -152,14 +159,20 @@ class NeRFModule(pl.LightningModule):
         num_of_train_data = int(0.9 * num_of_data)
 
         self.train_data = SplicedRays(
-            all_arays[:, 0][:num_of_train_data],
-            all_arays[:, 1][:num_of_train_data],
-            images[:num_of_train_data],
+            all_arays[:, 0][1:num_of_train_data],
+            all_arays[:, 1][1:num_of_train_data],
+            images[1:num_of_train_data],
         )
         self.val_data = SplicedRays(
             all_arays[:, 0][num_of_train_data:],
             all_arays[:, 1][num_of_train_data:],
             images[num_of_train_data:],
+        )
+        
+        self.test_data = SplicedRays(
+            all_arays[:, 0][:1],
+            all_arays[:, 1][:1],
+            images[0],
         )
 
     def _plot_data(
@@ -185,10 +198,10 @@ class NeRFModule(pl.LightningModule):
             .numpy()
         )
         ax[0].set_title(f"Iteration: {i}")
-        ax[1].imshow(testimg.detach().cpu().numpy())
+        ax[1].imshow(testimg.reshape([self.dataset.img_height, self.dataset.img_width, 3]).detach().cpu().numpy())
         ax[1].set_title(f"Target")
-        ax[2].plot(range(0, i + 1), train_psnrs, "r")
-        ax[2].plot(iternums, val_psnrs, "b")
+        ax[2].plot(range(0, i), train_psnrs, "r")
+        #ax[2].plot(iternums, val_psnrs, "b")
         ax[2].set_title("PSNR (train=red, val=blue")
         z_vals_strat = outputs["z_vals_stratified"].view((-1, n_samples))
         z_sample_strat = z_vals_strat[z_vals_strat.shape[0] // 2].detach().cpu().numpy()
@@ -203,12 +216,13 @@ class NeRFModule(pl.LightningModule):
             z_sample_hierarch = None
         _ = plot_samples(z_sample_strat, z_sample_hierarch, ax=ax[3])
         ax[3].margins(0)
-        plt.show()
-
+        plt.savefig(self.config.save_file+'/{}.png'.format(i))
+        plt.close(fig)
+        
     def forward(self, x):
         rays_o = x["rays_o"][0]
         rays_d = x["rays_d"][0]
-        
+
         rays_o = rays_o.reshape([-1, 3])
         rays_d = rays_d.reshape([-1, 3])
 
@@ -320,6 +334,9 @@ class NeRFModule(pl.LightningModule):
         self.log("train_psnr", psnr.item(), prog_bar=True)
         self.train_psnrs.append(psnr.item())
 
+        self.iter_nums += 1
+        self.iternums.append(self.iter_nums)
+
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -332,6 +349,25 @@ class NeRFModule(pl.LightningModule):
         val_psnr = -10.0 * torch.log10(loss)
         self.log("val_psnr", val_psnr.item(), prog_bar=True)
         self.val_psnrs.append(val_psnr.item())
+        self.iter_nums_val += 1
+        self.iternums_val.append(self.iter_nums_val)
+
+        if self.iter_nums % 50 == 0 and self.iter_nums != 0:
+            # for sample in self.test_data_loader:
+            #     outputs_test = self(sample)
+            #     rgb_predicted_test = outputs_test["rgb_map"]
+            #     tgt_images_test = sample["images"].reshape(-1, 3)
+            self._plot_data(
+                rgb_predicted,
+                tgt_images,
+                self.train_psnrs,
+                self.val_psnrs,
+                outputs,
+                self.config.strf_samp_option["n_samples"],
+                self.config.hierarchical_sampling["n_samples_hierarchical"],
+                self.iternums,
+                self.iter_nums,
+            )
 
         return loss
 
@@ -358,8 +394,19 @@ class NeRFModule(pl.LightningModule):
             persistent_workers=True,
             timeout=30,
         )
+    def test_dataloader(self):
+        return data.DataLoader(
+            self.test_data,
+            batch_size=1,
+            shuffle=False,
+            drop_last=False,
+            num_workers=2,
+            pin_memory=True,
+            persistent_workers=True,
+            timeout=30,
+        )
 
-    def _training_sanity_check(self,outputs):
+    def _training_sanity_check(self, outputs):
         # Check for any numerical issues.
         for k, v in outputs.items():
             if torch.isnan(v).any():
@@ -377,6 +424,6 @@ class NeRFModule(pl.LightningModule):
             lr=self.config.optimizer["lr"],
         )
 
-        #scheduler = EarlyStopping(patience=50)
-        #scheduler = optim.lr_scheduler.CosineAnnealingLR(opt_model, 100)
-        return opt_model#, {"scheduler": scheduler}
+        # scheduler = EarlyStopping(patience=50)
+        # scheduler = optim.lr_scheduler.CosineAnnealingLR(opt_model, 100)
+        return opt_model  # , {"scheduler": scheduler}

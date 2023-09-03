@@ -29,8 +29,8 @@ def main(hparams):
         verbose=False,
         mode="min",
     )
-    
-    #early_stop_callback = EarlyStopping(50)
+
+    # early_stop_callback = EarlyStopping(50)
 
     callbacks = [checkpoint_callback, early_stop_callback]
 
@@ -43,7 +43,7 @@ def main(hparams):
         callbacks=callbacks,
         check_val_every_n_epoch=hparams.check_val_every_n_epochs,
         benchmark=hparams.benchmark,
-        max_epochs=hparams.max_epochs
+        max_epochs=hparams.max_epochs,
     )
 
     model = NeRFModule(config.model_training_config)  # proslediti config
@@ -53,7 +53,7 @@ def main(hparams):
 
 
 def add_base_arguments(parser):
-    parser.add_argument("--test_name", type=str, help="Test name", default="test_01")
+    parser.add_argument("--test_name", type=str, help="Test name", default="test_02")
     parser.add_argument("--resume", type=str, help="resume from checkpoint")
     parser.add_argument(
         "--gpu", type=int, default=0, help="specify device id of gpu to train on"
@@ -65,9 +65,7 @@ def add_base_arguments(parser):
         help="check-val-every-n-epochs",
     )
     parser.add_argument("--benchmark", type=bool, default=True, help="benchmark")
-    parser.add_argument(
-        "--max-epochs", type=int, default=100, help="number of epochs"
-    )
+    parser.add_argument("--max-epochs", type=int, default=1000, help="number of epochs")
 
     return parser
 
