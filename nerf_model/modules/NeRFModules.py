@@ -23,28 +23,6 @@ from nerf_model.tools.plot_crop_data import *
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-
-class EarlyStopping:
-    def __init__(self, patience: int = 30, margin: float = 1e-4):
-        self.best_fitness = 0.0  # In our case PSNR
-        self.best_iter = 0
-        self.margin = margin
-        self.patience = patience or float(
-            "inf"
-        )  # epochs to wait after fitness stops improving to stop
-
-    def __call__(self, iter: int, fitness: float):
-        r"""
-        Check if criterion for stopping is met.
-        """
-        if (fitness - self.best_fitness) > self.margin:
-            self.best_iter = iter
-            self.best_fitness = fitness
-        delta = iter - self.best_iter
-        stop = delta >= self.patience  # stop training if patience exceeded
-        return stop
-
-
 class NeRFModule(pl.LightningModule):
     def __init__(self, config, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -70,7 +48,7 @@ class NeRFModule(pl.LightningModule):
         self.encoder = PositionalEncoder.PositionalEncoder(
             self.config.encoder["d_input"],
             self.config.encoder["n_freqs"],
-            self.config.encoder["log_spec"],
+            self.config.encoder["log_space"],
         )
         self.encode = lambda x: self.encoder(x)
 
@@ -78,16 +56,16 @@ class NeRFModule(pl.LightningModule):
             self.encoder_viewdirs = PositionalEncoder.PositionalEncoder(
                 self.config.encoder["d_input"],
                 self.config.encoder["n_freqs"],
-                self.config.encoder["log_spec"],
+                self.config.encoder["log_space"],
             )
-            self.encode_viewdirs = lambda x: self.encoder_viewdirs(x)
-            self.d_viewdirs = self.encode_viewdirs.d_output
+            self.encode_viewdir = lambda x: self.encoder_viewdirs(x)
+            self.d_viewdirs = self.encoder_viewdirs.d_output
         else:
-            self.encode_viewdirs = None
+            self.encode_viewdir = None
             self.d_viewdirs = None
 
         # NeRF model
-        self.model = NeRFModel(
+        self.model = NeRFModel.NeRFModel(
             d_input=self.encoder.d_output,
             n_layers=self.n_layers,
             d_filter=self.d_filter,
@@ -99,7 +77,7 @@ class NeRFModule(pl.LightningModule):
         self.model_params = list(self.model.parameters())
 
         if self.use_fine_model:
-            self.fine_model = NeRFModel(
+            self.fine_model = NeRFModel.NeRFModel(
                 d_input=self.encoder.d_output,
                 n_layers=self.n_layers,
                 d_filter=self.d_filter,
@@ -107,13 +85,13 @@ class NeRFModule(pl.LightningModule):
                 d_viewdirs=self.d_viewdirs,
             )
             self.fine_model.to(device)
-            model_params = model_params + list(self.fine_model.parameters())
+            self.model_params = self.model_params + list(self.fine_model.parameters())
         else:
             self.fine_model = None
 
         self.volume_sampling = VolumeSampling(
             self.config.strf_samp_option["n_samples"],
-            self.config.hierarchical_sampling["n_sample_hierarchicle"],
+            self.config.hierarchical_sampling["n_samples_hierarchical"],
             self.config.strf_samp_option["perturb"],
             self.config.strf_samp_option["inverse_depth"],
         )
@@ -144,7 +122,7 @@ class NeRFModule(pl.LightningModule):
         """
         points = points.reshape((-1, 3))
         points = encoding_function(points)
-        points = self._get_chunks(points, chunksize=chunk_size)
+        points = self._get_chunks(points, chunk_size=chunk_size)
         return points
 
     def _prepare_viewdirs_chunks(
@@ -161,7 +139,7 @@ class NeRFModule(pl.LightningModule):
         viewdirs = rays_d / torch.norm(rays_d, dim=-1, keepdim=True)
         viewdirs = viewdirs[:, None, ...].expand(points.shape).reshape((-1, 3))
         viewdirs = encoding_function(viewdirs)
-        viewdirs = self._get_chunks(viewdirs, chunksize=chunk_size)
+        viewdirs = self._get_chunks(viewdirs, chunk_size=chunk_size)
 
         return viewdirs
 
@@ -170,7 +148,6 @@ class NeRFModule(pl.LightningModule):
         all_arays = np.array(self.dataset.get_all_rays())
         images = self.dataset.images
         # poses = self.dataset.poses
-
         num_of_data = images.shape[0]
         num_of_train_data = int(0.9 * num_of_data)
 
@@ -229,8 +206,11 @@ class NeRFModule(pl.LightningModule):
         plt.show()
 
     def forward(self, x):
-        rays_o = x["rays_o"]
-        rays_d = x["rays_d"]
+        rays_o = x["rays_o"][0]
+        rays_d = x["rays_d"][0]
+        
+        rays_o = rays_o.reshape([-1, 3])
+        rays_d = rays_d.reshape([-1, 3])
 
         # Sample query points along each ray.
         query_points, z_vals = self.volume_sampling.stratified_sampling(
@@ -239,19 +219,18 @@ class NeRFModule(pl.LightningModule):
             self.config.strf_samp_option["near"],
             self.config.strf_samp_option["far"],
         )
-
         # Prepare batches.
         batches = self._prepare_chunks(
             query_points,
             self.encode,
-            chunksize=self.config.training_config["chunksize"],
+            chunk_size=self.config.training_config["chunksize"],
         )
-        if self.encode_viewdirs is not None:
+        if self.encode_viewdir is not None:
             batches_viewdirs = self._prepare_viewdirs_chunks(
                 query_points,
                 rays_d,
-                self.encode_viewdirs,
-                chunksize=self.config.training_config["chunksize"],
+                self.encode_viewdir,
+                chunk_size=self.config.training_config["chunksize"],
             )
         else:
             batches_viewdirs = [None] * len(batches)
@@ -290,20 +269,20 @@ class NeRFModule(pl.LightningModule):
             batches = self._prepare_chunks(
                 query_points,
                 self.encode,
-                chunksize=self.config.training_config["chunksize"],
+                chunk_size=self.config.training_config["chunksize"],
             )
-            if self.encode_viewdirs is not None:
+            if self.encode_viewdir is not None:
                 batches_viewdirs = self._prepare_viewdirs_chunks(
                     query_points,
                     rays_d,
-                    self.encode_viewdirs,
-                    chunksize=self.config.training_config["chunksize"],
+                    self.encode_viewdir,
+                    chunk_size=self.config.training_config["chunksize"],
                 )
             else:
                 batches_viewdirs = [None] * len(batches)
 
             # Forward pass new samples through fine model.
-            fine_model = fine_model if fine_model is not None else self.model
+            fine_model = self.fine_model if self.use_fine_model else self.model
             predictions = []
             for batch, batch_viewdirs in zip(batches, batches_viewdirs):
                 predictions.append(fine_model(batch, viewdirs=batch_viewdirs))
@@ -333,7 +312,8 @@ class NeRFModule(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         outputs = self(batch)
         rgb_predicted = outputs["rgb_map"]
-        loss = torch.nn.functional.mse_loss(rgb_predicted, batch["images"])
+        tgt_images = batch["images"].reshape(-1, 3)
+        loss = torch.nn.functional.mse_loss(rgb_predicted, tgt_images)
 
         self.log("train_loss", loss.item(), prog_bar=True)
         psnr = -10.0 * torch.log10(loss)
@@ -345,7 +325,8 @@ class NeRFModule(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         outputs = self(batch)
         rgb_predicted = outputs["rgb_map"]
-        loss = torch.nn.functional.mse_loss(rgb_predicted, batch["images"])
+        tgt_images = batch["images"].reshape(-1, 3)
+        loss = torch.nn.functional.mse_loss(rgb_predicted, tgt_images)
 
         self.log("val_loss", loss.item(), prog_bar=True)
         val_psnr = -10.0 * torch.log10(loss)
@@ -357,7 +338,7 @@ class NeRFModule(pl.LightningModule):
     def train_dataloader(self):
         return data.DataLoader(
             self.train_data,
-            batch_size=self.config["batch_size"],
+            batch_size=self.config.training_config["batch_size"],
             shuffle=True,
             drop_last=True,
             num_workers=8,
@@ -369,7 +350,7 @@ class NeRFModule(pl.LightningModule):
     def val_dataloader(self):
         return data.DataLoader(
             self.val_data,
-            batch_size=self.config["batch_size"],
+            batch_size=self.config.training_config["batch_size"],
             shuffle=False,
             drop_last=False,
             num_workers=8,
@@ -378,7 +359,7 @@ class NeRFModule(pl.LightningModule):
             timeout=30,
         )
 
-    def _training_sanity_check(outputs):
+    def _training_sanity_check(self,outputs):
         # Check for any numerical issues.
         for k, v in outputs.items():
             if torch.isnan(v).any():
@@ -387,20 +368,15 @@ class NeRFModule(pl.LightningModule):
                 print(f"! [Numerical Alert] {k} contains Inf.")
 
     def configure_optimizers(self):
-        opt_gen = optim.Adam(
+        opt_model = optim.Adam(
             [
                 {
-                    "params": self.regressor.parameters(),
-                },
-                {
-                    "params": self.decoder.parameters(),
-                },
+                    "params": self.model_params,
+                }
             ],
-            lr=self.lr,
+            lr=self.config.optimizer["lr"],
         )
 
-        opt_disc = optim.Adam(self.discriminator.parameters(), lr=self.lr)
-
-        # scheduler = optim.lr_scheduler.CosineAnnealingLR(opt_gen, self.max_epochs)
-        scheduler = EarlyStopping(patience=50)
-        return [opt_gen, opt_disc], {"scheduler": scheduler}
+        #scheduler = EarlyStopping(patience=50)
+        #scheduler = optim.lr_scheduler.CosineAnnealingLR(opt_model, 100)
+        return opt_model#, {"scheduler": scheduler}

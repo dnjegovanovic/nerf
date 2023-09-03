@@ -117,10 +117,8 @@ class VolumeSampling:
         # Draw samples from PDF using z_vals as bins and weights as probabilities.
         z_vals_mid = 0.5 * (z_vals[..., 1:] + z_vals[..., :-1])
         new_z_samples = self._sample_pdf(
-            z_vals_mid,
             weights[..., 1:-1],
-            self.n_sample_hierarchicle,
-            perturb=self.perturb,
+            z_vals_mid
         )
         new_z_samples = new_z_samples.detach()
 

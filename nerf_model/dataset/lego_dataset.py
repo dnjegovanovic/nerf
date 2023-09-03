@@ -27,11 +27,11 @@ class LegoDataset(BaseDataset):
         self.poses = torch.from_numpy(self.data["poses"])
         self.focal_length = torch.from_numpy(self.data["focal"])
 
-        self.img_height, self.img_width = self.images[1:3]
+        self.img_height, self.img_width = self.images.shape[1:3]
 
     def get_all_rays(self):
         all_rays = [
-            [get_rays(self.img_height, self.img_width, self.focal_length, p)]
+            get_rays(self.img_height, self.img_width, self.focal_length, p)
             for p in self.poses
         ]
 

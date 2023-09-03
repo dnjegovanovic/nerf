@@ -5,7 +5,7 @@ import pytorch_lightning.loggers as loggers
 from argparse import ArgumentParser
 from nerf_model.config.core import config
 from nerf_model.modules.NeRFModules import NeRFModule
-
+from nerf_model.models.EarlyStoppingMech import EarlyStopping
 from pathlib import Path
 
 
@@ -24,11 +24,13 @@ def main(hparams):
 
     early_stop_callback = pl.callbacks.EarlyStopping(
         monitor="val_loss",
-        min_delta=0.001,
-        patience=30,
+        min_delta=0.0001,
+        patience=50,
         verbose=False,
         mode="min",
     )
+    
+    #early_stop_callback = EarlyStopping(50)
 
     callbacks = [checkpoint_callback, early_stop_callback]
 
@@ -41,6 +43,7 @@ def main(hparams):
         callbacks=callbacks,
         check_val_every_n_epoch=hparams.check_val_every_n_epochs,
         benchmark=hparams.benchmark,
+        max_epochs=hparams.max_epochs
     )
 
     model = NeRFModule(config.model_training_config)  # proslediti config
@@ -62,6 +65,9 @@ def add_base_arguments(parser):
         help="check-val-every-n-epochs",
     )
     parser.add_argument("--benchmark", type=bool, default=True, help="benchmark")
+    parser.add_argument(
+        "--max-epochs", type=int, default=100, help="number of epochs"
+    )
 
     return parser
 

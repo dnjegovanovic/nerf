@@ -53,5 +53,5 @@ class SplicedRays(Dataset):
         return {
             "rays_o": self.rays_o[index],
             "rays_d": self.rays_d[index],
-            "images": self.images,
+            "images": self.images[index],
         }
