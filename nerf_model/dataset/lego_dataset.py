@@ -8,7 +8,7 @@ from nerf_model.tools.calculate_rays import *
 class LegoDataset(BaseDataset):
     """
     Lego dataset consists of 106 images taken of the synthetic Lego bulldozer along with poses and a common focal length value.
-    Like the original, we reserve the first 100 images for training and a single test image for validation.
+    Like the original, we reserve the first 90% images for training and a 10% images for validation.
     """
 
     def __init__(self, root_dir: str, debug=False):
