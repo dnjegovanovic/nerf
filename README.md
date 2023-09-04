@@ -12,6 +12,6 @@ The Neural Radiance Field
  <sup>1</sup>UC Berkeley, <sup>2</sup>Google Research, <sup>3</sup>UC San Diego  
   \*denotes equal contribution  
   
-<img src='savedfigure/readmeimg/pipeline.jpg'/>
+<img src='savedfigure\readmeimg\pipeline.jpg'/>
 
 > A neural radiance field is a simple fully connected network (weights are ~5MB) trained to reproduce input views of a single scene using a rendering loss. The network directly maps from spatial location and viewing direction (5D input) to color and opacity (4D output), acting as the "volume" so we can use volume rendering to differentiably render new views
