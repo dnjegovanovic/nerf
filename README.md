@@ -1,5 +1,5 @@
 # NeRF
-The Neural Radiance Field
+The NeRF (Neural Radiance Fields) is a method that achieves state-of-the-art results for synthesizing novel views of complex scenes.
 ## Method
 
 [NeRF: Representing Scenes as Neural Radiance Fields for View Synthesis](http://tancik.com/nerf)  
