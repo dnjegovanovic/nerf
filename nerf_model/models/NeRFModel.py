@@ -6,7 +6,10 @@ from typing import Tuple, Optional
 class NeRFModel(nn.Module):
     """_summary_
 
-    Neural radience fields module
+    Here we define the NeRF model, which consists primarily of a `ModuleList` of `Linear` layers, 
+    separated by non-linear activation functions and the occasional residual connection.
+    This implementation is based on Section 3 of the original "NeRF: Representing Scenes as
+    Neural Radiance Fields for View Synthesis" paper and uses the same defaults.
     """
 
     def __init__(
