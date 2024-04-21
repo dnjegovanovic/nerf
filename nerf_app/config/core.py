@@ -1,9 +1,11 @@
 from pathlib import Path
 from typing import Dict
+
+import yaml
 from pydantic import BaseModel
 from strictyaml import YAML
 from yaml.loader import FullLoader
-import yaml
+
 import nerf_app
 
 # Project Directories

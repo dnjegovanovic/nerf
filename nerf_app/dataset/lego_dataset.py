@@ -1,12 +1,11 @@
-import numpy as np
-
-import torch
-from torch.utils.data import random_split
-
-from torch.utils.data import Dataset
 from pathlib import Path, PureWindowsPath
 
-class PrepareData():
+import numpy as np
+import torch
+from torch.utils.data import Dataset, random_split
+
+
+class PrepareData:
     def __init__(self, root_dir: Path, validation_split: float = 0.1):
         self.validation_split = validation_split
         self.lego_root_dir = Path(PureWindowsPath(root_dir))
@@ -22,7 +21,7 @@ class PrepareData():
 
     def get_data(self):
         self.indices = list(range(len(self.images)))
-        print("-"*80)
+        print("-" * 80)
         print(f"Start idx: {self.indices[:10]}")
         np.random.seed(42)
         np.random.shuffle(self.indices)
@@ -31,7 +30,11 @@ class PrepareData():
         split = int(np.floor((1.0 - self.validation_split) * len(self.images)))
         train_img_ds, val_img_ds = self.images[:split], self.images[split:]
         train_pos_ds, val_pos_ds = self.poses[:split], self.images[split:]
-        return {"images": train_img_ds, "poses":train_pos_ds, "focal":self.focal_length }, {"images": val_img_ds, "poses":val_pos_ds, "focal":self.focal_length}
+        return {
+            "images": train_img_ds,
+            "poses": train_pos_ds,
+            "focal": self.focal_length,
+        }, {"images": val_img_ds, "poses": val_pos_ds, "focal": self.focal_length}
 
 
 class LegoDataset(Dataset):
@@ -41,13 +44,15 @@ class LegoDataset(Dataset):
         self._sanity_check()
 
     def _display_dataset_property(self):
-        print("-"*80)
+        print("-" * 80)
         print(f'Images shape: {self.data["images"].shape}')
         print(f'Poses shape: {self.data["poses"].shape}')
         print(f'Focal length: {self.data["focal"]}')
 
     def _sanity_check(self):
-        assert self.data["images"].shape[0] == self.data["poses"].shape[0], "Number of images is not same as number of poses"
+        assert (
+            self.data["images"].shape[0] == self.data["poses"].shape[0]
+        ), "Number of images is not same as number of poses"
 
     def __len__(self):
         return len(self.data["images"])
@@ -60,4 +65,3 @@ class LegoDataset(Dataset):
         }
 
         return batch_data
-
