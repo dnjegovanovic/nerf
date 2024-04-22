@@ -7,7 +7,8 @@ from nerf_app.utils.calculate_rays import *
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-if __name__ == "__main__":
+
+def test_rays_calc():
     root_dir = Path("D:/ML_AI_DL_Projects/projects_repo/nerf")
     prep_ds = PrepareData(device=device, root_dir=root_dir)
     train_ds, val_ds = prep_ds.get_data()

@@ -3,7 +3,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 data/
-output/
+output/train_tests/
 *.idea/
 # C extensions
 *.so
@@ -75,7 +75,7 @@ docs/_build/
 
 # PyBuilder
 target/
-
+notebooks/
 # Jupyter Notebook
 .ipynb_checkpoints
 

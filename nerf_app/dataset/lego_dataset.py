@@ -6,7 +6,7 @@ from torch.utils.data import Dataset, random_split
 
 
 class PrepareData:
-    def __init__(self, root_dir: Path, validation_split: float = 0.1):
+    def __init__(self, device, root_dir: Path, validation_split: float = 0.1):
         self.validation_split = validation_split
         self.lego_root_dir = Path(PureWindowsPath(root_dir))
         self.data_path = self.lego_root_dir / "data/tiny_nerf_data.npz"
@@ -15,9 +15,9 @@ class PrepareData:
         else:
             raise FileNotFoundError(self.data_path)
 
-        self.images = torch.from_numpy(self.data["images"])
-        self.poses = torch.from_numpy(self.data["poses"])
-        self.focal_length = torch.from_numpy(self.data["focal"])
+        self.images = torch.from_numpy(self.data["images"]).to(device)
+        self.poses = torch.from_numpy(self.data["poses"]).to(device)
+        self.focal_length = torch.from_numpy(self.data["focal"]).to(device)
 
     def get_data(self):
         self.indices = list(range(len(self.images)))
@@ -29,7 +29,7 @@ class PrepareData:
         print("-" * 80)
         split = int(np.floor((1.0 - self.validation_split) * len(self.images)))
         train_img_ds, val_img_ds = self.images[:split], self.images[split:]
-        train_pos_ds, val_pos_ds = self.poses[:split], self.images[split:]
+        train_pos_ds, val_pos_ds = self.poses[:split], self.poses[split:]
         return {
             "images": train_img_ds,
             "poses": train_pos_ds,
