@@ -73,6 +73,18 @@ the model in learning high frequency variations in the data, which leads to shar
 This approach circumvents the bias that neural networks have towards lower frequency functions, 
 allowing NeRF to represent sharper details.
 
+<p align="center">
+Simple test of encoding-visualization
+</p>
+<p align="center">
+  <img width="500" height="250" src="./output/images/input_tensorf_positiona_encoding.png" />
+</p>
+
+<p align="center">
+  <img width="500" height="250" src="./output/images/encoded_positiona_encoding.png" />
+</p>
+
+
 ## Radiance Field Function-NeRF <a name="RFF"></a>
 ## Differentiable Volume Renderer <a name="DVR"></a>
 ## Stratified Sampling <a name="SS"></a>
