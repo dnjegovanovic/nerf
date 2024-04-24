@@ -18,10 +18,34 @@ The NeRF (Neural Radiance Fields) is a method that achieves state-of-the-art res
 
 # Table of Contents
 [Theory Explanation](#TE)
+   - [What is a NeRF](#NeRF)
    - [Origins and Directions](#OaD)
-   - [Multi-head Attention](#MHA)
-   - [Image classification](#CLS)
+   - [Positional Encoder](#PE)
+   - [Radiance Field Function-NeRF](#RFF)
+   - [Differentiable Volume Renderer](#DVR)
+   - [Stratified Sampling](#SS)
+   - [Hierarchical Volume Sampling](#HVS)
 [Usage](#Usage)
+
+## What is a NeRF <a name="NeRF"></a>
+A neural radiance field (NeRF) is a neural network that can reconstruct complex three-dimensional scenes from a partial set of two-dimensional images. 
+Three-dimensional images are required in various simulations, gaming, media, and Internet of Things (IoT) applications to make digital interactions more 
+realistic and accurate. The NeRF learns the scene geometry, objects, and angles of a particular scene. Then it renders photorealistic 3D views from novel viewpoints, automatically generating synthetic data to fill in gaps.
+
+### What are the use cases of neural radiance fields?
+NeRFs can render complex scenes and generate images for various use cases.
+
+#### Computer graphics and animation
+In computer graphics, you can use NeRFs to create realistic visual effects, simulations, and scenes. NeRFs capture, render, and project lifelike environments, characters, and other imagery. NeRFs are commonly used to improve video-game graphics and VX film animation.
+
+#### Medical imaging
+NeRFs facilitate the creation of comprehensive anatomical structures from 2D scans such as MRIs. Their technology can reconstruct realistic representations of body tissue and organs, giving doctors and medical technicians useful visual context. 
+
+#### Virtual reality
+NeRFs are a vital technology in virtual reality and augmented reality simulations. Because they can accurately model 3D scenes, they facilitate creating and exploring realistic virtual environments. Depending on your viewing direction, the NeRF can display new visual information and even render virtual objects in a real space.
+
+#### Satellite imagery and planning
+Satellite imagery provides a range of images that NeRFs can use to produce comprehensive models of the earth’s surface. It is useful for reality capture (RC) use cases that require digitizing real-world environments—you can transform spatial location data into highly detailed 3D models. For example, the reconstruction of aerial imagery into landscape renders is commonly used in urban planning because it gives a useful reference for the real-world layout of an area. 
 
 ## Origins and Directions <a name="OaD"></a>
 
@@ -40,3 +64,16 @@ With this camera pose, we can now find the projection lines along each pixel of 
 <p align="center">
   <img width="500" height="250" src="./output/images/Pin-hole-camera-model-terminology-The-optical-center-pinhole-is-placed-at-the-origin.png" />
 </p>
+
+## Positional Encoder <a name="PE"></a>
+Much like the transformer model introduced in 2017[11], 
+the NeRF also benefits from a positional encoder as its input, albeit for a different reason. 
+In short, it maps its continuous input to a higher-dimensional space using high-frequency functions to aid 
+the model in learning high frequency variations in the data, which leads to sharper models. 
+This approach circumvents the bias that neural networks have towards lower frequency functions, 
+allowing NeRF to represent sharper details.
+
+## Radiance Field Function-NeRF <a name="RFF"></a>
+## Differentiable Volume Renderer <a name="DVR"></a>
+## Stratified Sampling <a name="SS"></a>
+## Hierarchical Volume Sampling <a name="HVS"></a>

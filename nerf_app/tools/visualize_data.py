@@ -3,9 +3,11 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import torch
 from mpl_toolkits.mplot3d import axes3d
+import seaborn as sns
 
 from nerf_app.dataset.lego_dataset import *
 from nerf_app.utils.calculate_rays import *
+from nerf_app.models.PositionalEncoder import PositionalEncoder
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -69,7 +71,7 @@ def visualize_calucated_rays():
     img_h, img_w = val_ds["images"].shape[1:3]
     f_l = val_ds["focal"]
     poses = val_ds["poses"]
-    r_o, r_d = calculate_rays(img_h, img_w, f_l, poses[0])
+    r_o, r_d = calculate_rays(img_h, img_w, f_l, poses[1])
     print(f"Ray Origin shape:{r_o.shape}")
     print(f"Ray Direc shape:{r_d.shape}")
     # Take origin
@@ -99,6 +101,26 @@ def visualize_calucated_rays():
     plt.savefig("../../output/images/visualize_calcul_rays.png")
 
 
+def visualize_positional_encoder_test():
+
+    encoder = PositionalEncoder(3, 5)
+    input_tensorf = torch.rand((10000, 3))
+    print(f"input_tensorf: {input_tensorf.shape}")
+    plt.figure()
+    sns.heatmap(input_tensorf, cmap='GnBu')
+    plt.savefig('../../output/images/input_tensorf_positiona_encoding.png')
+
+    encoder_rez = encoder(input_tensorf)
+
+    sns.heatmap(encoder_rez, cmap='GnBu')
+    plt.savefig('../../output/images/encoded_positiona_encoding.png')
+
+    print("Encoded Points")
+    print(encoder_rez.shape)
+    print(torch.min(encoder_rez), torch.max(encoder_rez), torch.mean(encoder_rez))
+    print("-" * 80)
+
 if __name__ == "__main__":
     # visualize_cameras()
-    visualize_calucated_rays()
+    # visualize_calucated_rays()
+    visualize_positional_encoder_test()

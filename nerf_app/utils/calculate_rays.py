@@ -12,6 +12,10 @@ def calculate_rays(
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     """
     Find origin and direction of rays through every pixel and camera origin.
+    With this camera pose, we can now find the projection lines along each pixel of our image.
+    Each line is defined by its origin point (x,y,z) and its direction (in this case a 3D vector).
+    While the origin is the same for every pixel, the direction is slightly different.
+    These lines are slightly deflected off center such that none of these lines are parallel.
 
     :param height: image height
     :param width: image width
