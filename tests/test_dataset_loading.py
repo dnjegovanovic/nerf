@@ -1,8 +1,5 @@
-from pathlib import Path
-
 from nerf_app.dataset.lego_dataset import *
-
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+from tests import device
 
 
 def test_dataset():
@@ -10,5 +7,5 @@ def test_dataset():
     prep_ds = PrepareData(device=device, root_dir=root_dir)
     train_ds, val_ds = prep_ds.get_data()
 
-    train_dataset = LegoDataset(train_ds)
-    validation_dataset = LegoDataset(val_ds)
+    LegoDataset(train_ds)
+    LegoDataset(val_ds)

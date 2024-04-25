@@ -1,11 +1,6 @@
-from pathlib import Path
-
-import torch
-
 from nerf_app.dataset.lego_dataset import *
 from nerf_app.utils.calculate_rays import *
-
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+from tests import device
 
 
 def test_rays_calc():

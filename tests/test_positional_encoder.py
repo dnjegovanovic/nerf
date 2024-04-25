@@ -16,6 +16,6 @@ def test_positional_encoder():
 
     print("Encoded Points")
     print(encoder_rez.shape)
-    assert encoder_rez.shape[1] == input_tensorf.shape[1]* (1 + 2*5)
+    assert encoder_rez.shape[1] == input_tensorf.shape[1] * (1 + 2 * 5)
     print(torch.min(encoder_rez), torch.max(encoder_rez), torch.mean(encoder_rez))
     print("-" * 80)

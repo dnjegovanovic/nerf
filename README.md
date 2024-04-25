@@ -49,11 +49,13 @@ Satellite imagery provides a range of images that NeRFs can use to produce compr
 
 ## Origins and Directions <a name="OaD"></a>
 
-Recall that NeRF processes inputs from a field of positions (x,y,z) and view directions (θ,φ). To gather these input points, we need to apply inverse rendering to the input images. More concretely, we draw projection lines through each pixel and across the 3D space, from which we can draw samples.
-
-To sample points from the 3D space beyond our image, we first start from the initial pose of every camera taken in the photo set. With some vector math, we can convert these 4x4 pose matrices into a 3D coordinate denoting the origin and a 3D vector indicating the direction. The two together describe a vector that indicates where a camera was pointing when the photo was taken.
-
-The code in the cell below illustrates this by drawing arrows that depict the origin and the direction of every frame.
+NeRF, or Neural Radiance Field, utilizes inputs from a grid of 3D positions (x, y, z) and view directions (θ, φ) 
+to generate realistic 3D scenes. By employing inverse rendering on input images, we can obtain these crucial input points. 
+This process involves drawing projection lines from each pixel across the 3D space, 
+allowing us to sample points beyond the image boundaries. 
+To do this, we start with the initial camera poses from the photo set and convert them into 3D coordinates and vectors, 
+which together describe the camera's direction and origin during image capture, 
+helping to expand our sampling range for more accurate scene representation.
 
 <p align="center">
   <img width="500" height="250" src="./output/images/visualize_camera_position.png" />
@@ -66,12 +68,11 @@ With this camera pose, we can now find the projection lines along each pixel of 
 </p>
 
 ## Positional Encoder <a name="PE"></a>
-Much like the transformer model introduced in 2017[11], 
-the NeRF also benefits from a positional encoder as its input, albeit for a different reason. 
-In short, it maps its continuous input to a higher-dimensional space using high-frequency functions to aid 
-the model in learning high frequency variations in the data, which leads to sharper models. 
-This approach circumvents the bias that neural networks have towards lower frequency functions, 
-allowing NeRF to represent sharper details.
+The NeRF model, similar to the transformer introduced in 2017, 
+incorporates a positional encoder to benefit from higher-dimensional space representation. 
+This technique uses high-frequency functions to help the model learn intricate details in the data, 
+overcoming the neural network's inherent preference for lower frequency functions. Consequently, 
+NeRF can create more precise and detailed representations.
 
 <p align="center">
 Simple test of encoding-visualization
@@ -86,6 +87,29 @@ Simple test of encoding-visualization
 
 
 ## Radiance Field Function-NeRF <a name="RFF"></a>
+
 ## Differentiable Volume Renderer <a name="DVR"></a>
+
+To convert raw NeRF outputs into an image, 
+we utilize the volume integration method described in Equations 1-3 of Section 4 in the paper. 
+This involves calculating a weighted sum of all samples along each pixel's ray, 
+which helps estimate the color value at that specific pixel. The RGB samples are weighted by their respective alpha values, 
+with higher alpha values indicating a higher likelihood of the area being opaque. 
+This weighting system allows for the assessment of occlusion probability, 
+with points further along the ray being more likely to be occluded.
+
 ## Stratified Sampling <a name="SS"></a>
+
+Having obtained the aforementioned lines, which are characterized as origin and direction vectors, 
+we can now initiate the sampling procedure. It is important to remember that NeRF employs a coarse-to-fine sampling strategy, 
+commencing with the stratified sampling approach.
+The stratified sampling approach splits the ray into evenly-spaced bins and randomly samples within each bin. 
+The perturb setting determines whether to sample points uniformly from each bin or to simply use the bin center as the point. 
+In most cases, we want to keep perturb = True as it will encourage the network to learn over a continuously sampled space. 
+It may be useful to disable for debugging.
+
+<p align="center">
+  <img width="500" height="250" src="./output/images/stratified_sampling_01.png" />
+</p>
+
 ## Hierarchical Volume Sampling <a name="HVS"></a>
