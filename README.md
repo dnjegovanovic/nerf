@@ -88,6 +88,11 @@ Simple test of encoding-visualization
 
 ## Radiance Field Function-NeRF <a name="RFF"></a>
 
+The NeRF model is defined here. It is mainly composed of a `ModuleList` of `Linear` layers, 
+with the occasional residual connection and non-linear activation functions in between. 
+This model has an optional view direction input that, if supplied during instantiation, will change the model design. 
+Utilizing the same default settings, this solution is based on Section 3 of the original "NeRF: Representing Scenes as Neural Radiance Fields for View Synthesis" paper.
+
 ## Differentiable Volume Renderer <a name="DVR"></a>
 
 To convert raw NeRF outputs into an image, 
