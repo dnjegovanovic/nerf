@@ -95,13 +95,13 @@ Utilizing the same default settings, this solution is based on Section 3 of the 
 
 ## Differentiable Volume Renderer <a name="DVR"></a>
 
-To convert raw NeRF outputs into an image, 
-we utilize the volume integration method described in Equations 1-3 of Section 4 in the paper. 
-This involves calculating a weighted sum of all samples along each pixel's ray, 
-which helps estimate the color value at that specific pixel. The RGB samples are weighted by their respective alpha values, 
-with higher alpha values indicating a higher likelihood of the area being opaque. 
-This weighting system allows for the assessment of occlusion probability, 
-with points further along the ray being more likely to be occluded.
+It is still necessary to turn the raw NeRF outputs into a picture. 
+This is the point in the paper where we apply the volume integration that is explained in Equations 1-3 in Section 4. 
+To determine the estimated color value for a pixel, we essentially take the weighted sum of all samples along the pixel's ray. 
+The alpha value of each RGB sample determines its weight. 
+Points farther down the ray are more likely to be obscured because higher alpha values suggest a 
+larger possibility that the sampled area is opaque. The damping of those additional points is guaranteed by 
+the cumulative product.
 
 ## Stratified Sampling <a name="SS"></a>
 

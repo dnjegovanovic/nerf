@@ -1,6 +1,7 @@
+from typing import Optional, Tuple
+
 import torch
 import torch.nn as nn
-from typing import Tuple, Optional
 
 
 class NeRF(nn.Module):
@@ -46,10 +47,9 @@ class NeRF(nn.Module):
     def forward(
         self, x: torch.Tensor, viewdirs: Optional[torch.Tensor] = None
     ) -> torch.Tensor:
-
         # Cannot use viewdirs if instantiated with d_viewdirs = None
         if self.d_viewdirs is None and viewdirs is not None:
-            raise ValueError('Cannot input x_direction if d_viewdirs was not given.')
+            raise ValueError("Cannot input x_direction if d_viewdirs was not given.")
 
             # Apply forward pass up to bottleneck
             x_input = x
