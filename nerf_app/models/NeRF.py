@@ -51,27 +51,27 @@ class NeRF(nn.Module):
         if self.d_viewdirs is None and viewdirs is not None:
             raise ValueError("Cannot input x_direction if d_viewdirs was not given.")
 
-            # Apply forward pass up to bottleneck
-            x_input = x
-            for i, layer in enumerate(self.layers):
-                x = self.act(layer(x))
-                if i in self.skip_con:
-                    x = torch.cat([x, x_input], dim=-1)
+        # Apply forward pass up to bottleneck
+        x_input = x
+        for i, layer in enumerate(self.layers):
+            x = self.act(layer(x))
+            if i in self.skip_con:
+                x = torch.cat([x, x_input], dim=-1)
 
-            # Apply bottleneck
-            if self.d_viewdirs is not None:
-                # Split alpha from network output
-                alpha = self.alpha_out(x)
+        # Apply bottleneck
+        if self.d_viewdirs is not None:
+            # Split alpha from network output
+            alpha = self.alpha_out(x)
 
-                # Pass through bottleneck to get RGB
-                x = self.rgb_filters(x)
-                x = torch.concat([x, viewdirs], dim=-1)
-                x = self.act(self.branch(x))
-                x = self.output(x)
+            # Pass through bottleneck to get RGB
+            x = self.rgb_filters(x)
+            x = torch.concat([x, viewdirs], dim=-1)
+            x = self.act(self.branch(x))
+            x = self.output(x)
 
-                # Concatenate alphas to output
-                x = torch.concat([x, alpha], dim=-1)
-            else:
-                # Simple output
-                x = self.output(x)
-            return x
+            # Concatenate alphas to output
+            x = torch.concat([x, alpha], dim=-1)
+        else:
+            # Simple output
+            x = self.output(x)
+        return x

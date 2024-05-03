@@ -70,8 +70,8 @@ class VolumeRendering(nn.Module):
 
         return pts, z_vals
 
+    @staticmethod
     def volume_integration(
-        self,
         raw: torch.Tensor,
         z_vals: torch.Tensor,
         rays_d: torch.Tensor,
