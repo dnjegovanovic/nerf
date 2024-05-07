@@ -5,7 +5,7 @@ from tests import device
 
 
 def test_volume_integration():
-    root_dir = Path("../")
+    root_dir = Path("D:/ML_AI_DL_Projects/projects_repo/nerf")
     prep_ds = PrepareData(device=device, root_dir=root_dir)
     train_ds, val_ds = prep_ds.get_data()
 
@@ -28,7 +28,7 @@ def test_volume_integration():
             rays_o, rays_d, 2.0, 6.0, n_samples, perturb, inverse_depth
         )
     # Example of input to volume integration
-    raw = torch.rand(2500, 64, 4)
+    raw = torch.rand(2500, 64, 4).to(device)
     z_vals = z_vals[:2500]
     rays_d = rays_d[:2500]
     print(f"z_vals:{z_vals.shape}")
@@ -38,3 +38,15 @@ def test_volume_integration():
     # rays_d: torch.Size([2500, 3])
 
     rgb_map, depth_map, acc_map, weights = VR.volume_integration(raw, z_vals, rays_d)
+
+    print(f"rgb_map:{rgb_map.shape}")
+    print(f"depth_map:{depth_map.shape}")
+    print(f"acc_map:{acc_map.shape}")
+    print(f"weights:{weights.shape}")
+
+    assert rgb_map.shape == rays_d.shape, "RGB map is not proper shape"
+    assert depth_map.shape[0] == rays_d.shape[0], "depth map is not proper shape"
+    assert acc_map.shape[0] == rays_d.shape[0], "acc map is not proper shape"
+    assert weights.shape == z_vals.shape, "weights map is not proper shape"
+    
+
