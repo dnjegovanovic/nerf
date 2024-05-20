@@ -48,5 +48,3 @@ def test_volume_integration():
     assert depth_map.shape[0] == rays_d.shape[0], "depth map is not proper shape"
     assert acc_map.shape[0] == rays_d.shape[0], "acc map is not proper shape"
     assert weights.shape == z_vals.shape, "weights map is not proper shape"
-    
-

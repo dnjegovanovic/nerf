@@ -168,6 +168,9 @@ def visualize_stratified_sampling():
     ax.axes.yaxis.set_visible(False)
     plt.savefig("../../output/images/stratified_sampling_01.png")
 
+def visualize_pdf_hierarchical_sampling():
+    pass
+
 
 if __name__ == "__main__":
     # visualize_cameras()

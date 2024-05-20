@@ -118,3 +118,16 @@ It may be useful to disable for debugging.
 </p>
 
 ## Hierarchical Volume Sampling <a name="HVS"></a>
+
+The radiance field is not solely represented by a single multilayer perceptron, but rather by two distinct ones. 
+One of these perceptrons functions at a higher level, capturing general structural characteristics of the scene. 
+The other perceptron operates at a more detailed level, focusing on intricate features such as meshes and branches. 
+Furthermore, these two models receive different samples - the coarse model processes evenly spaced samples across the ray, 
+while the fine model concentrates on areas with high probabilities of containing important information.
+
+The process of "focusing" is achieved through their hierarchical volume sampling technique. 
+Due to the sparsity of the 3D space with occlusions, many points do not significantly impact the final image. Thus, 
+it is advantageous to oversample areas with a high probability of influencing the overall result. By assigning learned, 
+normalized weights to the initial samples, they generate a probability density function (PDF) along the ray. Subsequently, 
+they utilize inverse transform sampling on this PDF to obtain a second set of samples. 
+These samples are then merged with the initial set and inputted into the fine network to generate the ultimate output.
