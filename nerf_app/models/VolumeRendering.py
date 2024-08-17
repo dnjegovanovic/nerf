@@ -174,3 +174,28 @@ class VolumeRendering(nn.Module):
         samples = bins_g[..., 0] + t * (bins_g[..., 1] - bins_g[..., 0])
 
         return samples  # [n_rays, n_samples]
+
+    @staticmethod
+    def sample_hierarchical(
+            rays_o: torch.Tensor,
+            rays_d: torch.Tensor,
+            z_vals: torch.Tensor,
+            weights: torch.Tensor,
+            n_samples: int,
+            perturb: bool = False
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        r"""
+        Apply hierarchical sampling to the rays.
+        """
+
+        # Draw samples from PDF using z_vals as bins and weights as probabilities.
+        z_vals_mid = .5 * (z_vals[..., 1:] + z_vals[..., :-1])
+        new_z_samples = VolumeRendering.pdf_sample(z_vals_mid, weights[..., 1:-1], n_samples,
+                                   perturb=perturb)
+        new_z_samples = new_z_samples.detach()
+
+        # Resample points from ray based on PDF.
+        z_vals_combined, _ = torch.sort(torch.cat([z_vals, new_z_samples], dim=-1), dim=-1)
+        pts = rays_o[..., None, :] + rays_d[..., None, :] * z_vals_combined[..., :,
+                                                            None]  # [N_rays, N_samples + n_samples, 3]
+        return pts, z_vals_combined, new_z_samples
